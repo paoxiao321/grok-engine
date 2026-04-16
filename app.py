@@ -1,67 +1,57 @@
 import streamlit as st
 import requests
-import time
 
-# --- 像素风 UI ---
-st.set_page_config(page_title="SUPER GROK BROS", layout="wide")
+# --- 清新马里奥风格 UI ---
+st.set_page_config(page_title="🍄 超级马里奥视频工厂", layout="wide")
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-    html, body, [class*="css"] { font-family: 'Press Start 2P', cursive; }
-    .stApp { background-color: #5c94fc; }
-    button { background-color: #e74c3c !important; color: white !important; border: 4px solid #000 !important; }
-    h1 { color: #f1c40f !important; text-shadow: 3px 3px #000; }
+    @import url('https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&display=swap');
+    body { font-family: 'Ma Shan Zheng', cursive; background-color: #87CEEB !important; }
+    .stApp { background-color: #87CEEB !important; }
+    h1, h2, h3 { color: #FFFFFF !important; text-shadow: 2px 2px #E74C3C; text-align: center; }
+    .stButton>button { background-color: #FF6B6B !important; color: white !important; border-radius: 20px !important; border: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🍄 SUPER GROK BROS 视频工厂")
+st.title("🍄 超级马里奥视频工厂")
 
-api_key = st.sidebar.text_input("🔑 ToAPIs Key:", type="password")
+# --- 侧边栏 ---
+with st.sidebar:
+    st.subheader("⚙️ 投币设置")
+    api_key = st.text_input("🔑 ToAPIs Key:", type="password")
 
-# --- 10 窗口 ---
-tabs = st.tabs([f"🍄 任务 {i+1}" for i in range(10)])
+# --- 主界面 ---
+tab1, tab2 = st.tabs(["🚀 生成视频", "🔍 领取视频"])
 
-for i, tab in enumerate(tabs):
-    with tab:
-        with st.form(f"f_{i}"):
-            prompt = st.text_area("✍️ 视频描述:", key=f"p_{i}")
-            # 这里输入图片链接，换行分隔
-            img_urls_text = st.text_area("🖼️ 参考图链接 (一行一个，最多7个):", key=f"img_{i}", help="粘贴公网图片链接，如刚才那个链接")
-            
-            col1, col2 = st.columns(2)
-            duration = col1.number_input("⏱️ 时长(6-30s):", 6, 30, 6, key=f"dur_{i}")
-            quality = col2.selectbox("💎 质量:", ["480p", "720p"], key=f"q_{i}")
-            submitted = st.form_submit_button("🚀 投币开始！")
+with tab1:
+    with st.form("gen_form"):
+        prompt = st.text_area("✍️ 告诉马里奥你想看什么画面:")
+        img_urls = st.text_area("🖼️ 图片链接 (最多7个,换行分隔):")
+        duration = st.slider("⏱️ 时长(秒):", 6, 30, 6)
+        submitted = st.form_submit_button("🚀 投币出发！")
 
-        if submitted:
-            if not api_key: 
-                st.error("请先输入 API Key！")
-            else:
-                # 转换图片链接为数组
-                img_list = [url.strip() for url in img_urls_text.split('\n') if url.strip()]
-                
-                payload = {
-                    "model": "grok-imagine-1.0-video",
-                    "prompt": prompt,
-                    "aspect_ratio": "16:9",
-                    "duration": int(duration),
-                    "quality": quality
-                }
-                if img_list:
-                    payload["image_urls"] = img_list[:7] # 最多限制7张
+    if submitted and api_key:
+        img_list = [u.strip() for u in img_urls.split('\n') if u.strip()]
+        res = requests.post("https://toapis.com/v1/videos/generations",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": "grok-imagine-1.0-video", "prompt": prompt, "image_urls": img_list[:7], "duration": duration})
+        st.success(f"✅ 任务 ID 已获取: {res.json().get('id')}")
 
-                # 发送请求
-                try:
-                    res = requests.post(
-                        "https://toapis.com/v1/videos/generations",
-                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                        json=payload
-                    )
-                    data = res.json()
-                    if "id" in data:
-                        st.success(f"✅ 任务提交成功！ID: {data['id']}")
-                        st.info("正在后台生成，请记录任务ID以备后续查询。")
-                    else:
-                        st.error(f"❌ 失败: {data}")
-                except Exception as e:
-                    st.error(f"⚠️ 错误: {e}")
+with tab2:
+    check_id = st.text_input("请输入任务 ID:")
+    if st.button("🔍 检查进度"):
+        res = requests.get(f"https://toapis.com/v1/videos/generations/{check_id}", 
+                           headers={"Authorization": f"Bearer {api_key}"})
+        data = res.json()
+        status = data.get("status")
+        st.write(f"当前状态: {status}")
+        
+        if status == "completed":
+            v_url = data.get("video_url")
+            st.video(v_url)
+            # 下载按钮
+            st.markdown(f'<a href="{v_url}" download="mario_video.mp4"><button style="background:#4CAF50; color:white; padding:10px 20px; border:none; border-radius:10px;">💾 点击下载视频</button></a>', unsafe_allow_html=True)
+        elif status == "failed":
+            st.error("❌ 任务失败，请检查提示词或图片链接。")
+        else:
+            st.warning("⏳ 还在努力采蘑菇中，请稍后再查！")
