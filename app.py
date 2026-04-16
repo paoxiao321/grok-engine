@@ -8,18 +8,16 @@ st.markdown("""
     <style>
     .stApp { background: linear-gradient(to bottom, #87CEEB 70%, #4CAF50 100%); }
     h1 { color: #FFD700; text-shadow: 3px 3px #000; text-align: center; }
-    /* 这是视频框的固定样式 */
-    .video-box { 
+    .video-container { 
         border: 8px solid #2C3E50; 
         border-radius: 15px; 
-        padding: 10px; 
+        padding: 15px; 
         background: #f0f0f0; 
-        min-height: 350px; 
+        min-height: 400px; 
         display: flex; 
-        flex-direction: column; 
-        align-items: center; 
+        flex-direction: column;
+        align-items: center;
         justify-content: center;
-        color: #555;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -65,26 +63,29 @@ for i, tab in enumerate(tabs):
         
         with col2:
             st.markdown("### 📺 视频预览框")
-            # 无论任务如何，视频框永远显示
-            st.markdown('<div class="video-box">', unsafe_allow_html=True)
-            
-            t = st.session_state.tasks[i]
-            if t["id"]:
-                # 如果有任务 ID，尝试更新状态
-                res = requests.get(f"https://toapis.com/v1/videos/generations/{t['id']}", 
-                                  headers={"Authorization": f"Bearer {api_key}"})
-                data = res.json()
-                t["status"] = data.get("status", "unknown")
+            # 使用容器包裹视频区域
+            with st.container(border=True):
+                st.markdown('<div class="video-container">', unsafe_allow_html=True)
                 
-                if t["status"] == "completed":
-                    t["url"] = data.get("video_url")
-                    st.video(t["url"])
-                    st.markdown(f'<a href="{t["url"]}" download="video_{i}.mp4">💾 点击下载</a>', unsafe_allow_html=True)
+                t = st.session_state.tasks[i]
+                if t["id"]:
+                    # 查询状态
+                    res = requests.get(f"https://toapis.com/v1/videos/generations/{t['id']}", 
+                                      headers={"Authorization": f"Bearer {api_key}"})
+                    data = res.json()
+                    t["status"] = data.get("status", "unknown")
+                    
+                    if t["status"] == "completed":
+                        t["url"] = data.get("video_url")
+                        st.video(t["url"])
+                        st.markdown(f'<a href="{t["url"]}" download="mario_video.mp4">💾 下载视频</a>', unsafe_allow_html=True)
+                    else:
+                        # 状态提示强制显示在预览框中心
+                        st.warning(f"当前状态: {t['status']} ... 正在采蘑菇 🍄")
+                        st.progress(0.5) # 给个加载条
                 else:
-                    st.write(f"当前状态: {t['status']} ... 正在采蘑菇 🍄")
-            else:
-                st.write("管道是空的，快去左边发射任务！")
+                    st.write("管道是空的，快去左边发射任务！")
                 
-            st.markdown('</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
 if st.button("🔄 刷新所有任务"): st.rerun()
